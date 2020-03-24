@@ -21,7 +21,7 @@ tensorboard==1.14.0
 tensorflow==1.14.0
 tensorflow-estimator==1.14.0
 utils==0.9.0
-pip install git+https://github.com/sat28/githubcommit.git
+-m pip install git+https://github.com/sat28/githubcommit.git
 jupyter serverextension enable --py githubcommit
 jupyter nbextension install --py githubcommit
 jupyter nbextension enable --py githubcommit
