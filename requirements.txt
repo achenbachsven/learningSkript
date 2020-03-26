@@ -21,5 +21,4 @@ tensorboard==1.14.0
 tensorflow==1.14.0
 tensorflow-estimator==1.14.0
 utils==0.9.0
-jupyterLab==2.0.1
 jupyterlab-git==0.10.0
