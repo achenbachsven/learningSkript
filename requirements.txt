@@ -13,4 +13,4 @@ tensorboard==1.14.0
 tensorflow==1.14.0
 tensorflow-estimator==1.14.0
 utils==0.9.0
-jupyterlab==1.2 "ipywidgets==7.5"
+jupyterlab-plotly==1.5.4
