@@ -10,7 +10,7 @@ seaborn==0.9.0
 plotly==4.5.4
 sklearn==0.0
 tensorboard==1.14.0
-tensorflow==1.14.0
+tensorflow==1.15.2
 tensorflow-estimator==1.14.0
 utils==0.9.0
 dtaidistance==1.2.3
