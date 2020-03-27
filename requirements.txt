@@ -13,5 +13,6 @@ tensorboard==1.14.0
 tensorflow==1.14.0
 tensorflow-estimator==1.14.0
 utils==0.9.0
+neptune-notebooks
 ipywidgets
 jupyter_contrib_nbextensions
