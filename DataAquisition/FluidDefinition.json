@@ -1,0 +1,101 @@
+{
+  "1": {
+    "Phänomen": "Air Aspiration",
+	"ClassId" : 1,
+    "Fluid": "Water",
+    "ya": 125666,
+    "xa": 100,
+	"za": 84314,	
+    "Acquisition Possible": 0,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3	
+  },
+  "2": {
+    "Phänomen": "Air Aspiration",
+	"ClassId" : 1,
+    "Fluid": "Glycerol",
+    "ya": 179849 ,
+    "xa": 100,
+	"za": 84314,	
+    "Acquisition Possible": 1,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3
+  },
+  "3": {
+    "Phänomen": "Air Aspiration",
+	"ClassId" : 1,
+    "Fluid": "DMSO",
+    "ya": 164047,
+    "xa": 100,
+	"za": 84314,	
+    "Acquisition Possible": 0,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3	
+  },
+  "4": {
+    "Phänomen": "Normal Aspiration",
+	"ClassId" : 0,
+    "Fluid": "Water",
+    "ya": 125666,
+    "xa": 100,
+	"za": 76315,	
+    "Acquisition Possible": 0,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3
+	},
+  "5": {
+    "Phänomen": "Normal Aspiration",
+	"ClassId" : 0,
+    "Fluid": "Glycerol",
+    "ya": 179849 ,
+    "xa": 100,
+	"za": 74700,	
+    "Acquisition Possible": 0,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3    
+  },
+  "6": {
+    "Phänomen": "Normal Aspiration",
+	"ClassId" : 0,
+    "Fluid": "DMSO",
+    "ya": 164047,
+    "xa": 100,
+	"za": 74747,
+    "Acquisition Possible": 0,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3	
+  },
+  "7": {
+    "Phänomen": "Cloth Aspiration",
+    "Fluid": "Water",
+	"ClassId" : 2,
+    "ya": 140695,
+    "xa": 100,
+	"za": 76315,	
+    "Acquisition Possible": 0,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3
+  },
+  "8": {
+    "Phänomen": "Cloth Aspiration",
+	"ClassId" : 2,
+    "Fluid": "Glycerol",
+    "ya": 164047 ,
+    "xa": 100,
+	"za": 74616,	
+    "Acquisition Possible": 0,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3	
+  },
+  "9": {
+    "Phänomen": "Cloth Aspiration",
+	"ClassId" : 2,
+    "Fluid": "DMSO",
+    "ya": 179849,
+    "xa": 100,
+	"za": 74700,	
+    "Acquisition Possible": 0,
+    "Execution Sequence Number Move": 2,
+    "Execution Sequence Number Asp": 3	
+  }
+}
