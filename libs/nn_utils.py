@@ -375,8 +375,8 @@ def generate_model(model, x_test, name='weights.h'):
                             iname, inp, kname))
                     fp.write('#define {0}_BIAS_LSHIFT   ({1}_OUTPUT_SHIFT+{2}_SHIFT-{3}_SHIFT)\n'.format(
                             iname, inp, kname, bname))
-                    fp.write('#if {0}_OUTPUT_RSHIFT <= 0\n#error {0}_OUTPUT_RSHIFT must be bigger than 0\n#endif\n'.format(iname))
-                    fp.write('#if {0}_BIAS_LSHIFT <= 0\n#error {0}_BIAS_RSHIFT must be bigger than 0\n#endif\n'.format(iname))
+                    fp.write('#if {0}_OUTPUT_RSHIFT < 0\n#error {0}_OUTPUT_RSHIFT must be bigger than 0\n#endif\n'.format(iname))
+                    fp.write('#if {0}_BIAS_LSHIFT < 0\n#error {0}_BIAS_RSHIFT must be bigger than 0\n#endif\n'.format(iname))
                 # add, sub
                 elif ('add' in layer.name or
                     'subtract' in layer.name):
@@ -384,13 +384,13 @@ def generate_model(model, x_test, name='weights.h'):
                     inp = layer.input[0].name.replace(':','/').split('/')[0].upper()
                     fp.write('#define {0}_OUTPUT_RSHIFT ({1}_OUTPUT_SHIFT-{0}_OUTPUT_SHIFT)\n'.format(
                             iname, inp))
-                    fp.write('#if {0}_OUTPUT_RSHIFT <= 0\n#error {0}_OUTPUT_RSHIFT must be bigger than 0\n#endif\n'.format(iname))
+                    fp.write('#if {0}_OUTPUT_RSHIFT < 0\n#error {0}_OUTPUT_RSHIFT must be bigger than 0\n#endif\n'.format(iname))
                 # mult is different, Q3.4 * Q3.4 = Q6.8. if mult out is Q4.3, then shift (Q.4+q.4)-Q.3=5. Am I right?
                 elif ('multiply' in layer.name ):
                     inp = layer.input[0].name.replace(':','/').split('/')[0].upper()
                     fp.write('#define {0}_OUTPUT_RSHIFT ({1}_OUTPUT_SHIFT*2-{0}_OUTPUT_SHIFT)\n'.format(
                             iname, inp))
-                    fp.write('#if {0}_OUTPUT_RSHIFT <= 0\n#error {0}_OUTPUT_RSHIFT must be bigger than 0\n#endif\n'.format(iname))
+                    fp.write('#if {0}_OUTPUT_RSHIFT < 0\n#error {0}_OUTPUT_RSHIFT must be bigger than 0\n#endif\n'.format(iname))
 
 
         fp.write('\n/* weights for each layer */\n')
@@ -421,28 +421,31 @@ def generate_model(model, x_test, name='weights.h'):
                 var_name = str(var.name).replace('/', '_').replace(':', '_')
                 if("kernel" in var_name):
                     fp.write('static const int8_t %s_weights[] = %s;\n'%(layer.name, var_name.upper()))
-                    fp.write('static const nn_weight_t %s_w = { (const void*)%s_weights, %s_OUTPUT_RSHIFT};\n'%(layer.name,layer.name, layer.name.upper()))
+                    fp.write('static const NN_weight_t %s_w = { (const void*)%s_weights, %s_OUTPUT_RSHIFT};\n'%(layer.name,layer.name, layer.name.upper()))
                 elif("bias" in var_name):
                     fp.write('static const int8_t %s_bias[] = %s;\n'%(layer.name, var_name.upper()))
-                    fp.write('static const nn_bias_t %s_b = { (const void*)%s_bias, %s_BIAS_LSHIFT};\n'%(layer.name,layer.name, layer.name.upper()))
-        fp.write('\n/* nn model */\n')
+                    fp.write('static const NN_bias_t %s_b = { (const void*)%s_bias, %s_BIAS_LSHIFT};\n'%(layer.name,layer.name, layer.name.upper()))
+        fp.write('\n/* NN model */\n')
         # FIXME: now only support one input and one output
         sz = 1
         for d in model.input.shape[1:]:
             sz = sz*d
-        fp.write('static int8_t nn_input_data[%d];\n'%(sz))
+        fp.write('static int8_t NN_input_data[%d];\n'%(sz))
         sz = 1
         for d in model.output.shape[1:]:
             sz = sz*d
-        fp.write('static int8_t nn_output_data[%d];\n'%(sz))
-        fp.write('static nn_model_t* nn_model_create(void)\n{\n')
-        fp.write('\tstatic nn_model_t model;\n')
+        fp.write('static int8_t NN_output_data[%d];\n'%(sz))
+        fp.write('static NN_types_error_t NN_model_create(NN_model_t *model)\n{\n')
         if(ID>32):
-            fp.write('\tnn_layer_t ** layer = malloc(sizeof(nn_layer_t *)*%d);\n'%(ID+1))
+            fp.write('\tNN_layer_t ** layer = malloc(sizeof(NN_layer_t *)*%d);\n'%(ID+1))
             fp.write('\tif(NULL == layer) return NULL;\n')
         else:
-            fp.write('\tnn_layer_t* layer[%d];\n'%(ID+1))
-        fp.write('\n\tnew_model(&model);\n\n')
+            fp.write('\tNN_layer_t* layer[%d];\n'%(ID+1))
+            fp.write('\tNN_types_error_t error;\n')
+			
+        fp.write('\n\terror = NN_main_newModel(model);\n\n')
+        fp.write('\tif(error != NN_ERROR_NONE)\n')
+        fp.write('\t\treturn error;\n\n')
         for layer in L:
             if(is_skipable_layer(layer)):
                 continue
@@ -458,31 +461,31 @@ def generate_model(model, x_test, name='weights.h'):
                 except:
                     inshape = layer.shape[1:]
                 if (len(inshape) == 2):  # 1-D input
-                    fp.write('\tlayer[%d] = Input(shape(1,%d,%d), nn_input_data);\n' % (id, inshape[0], inshape[1]))
+                    fp.write('\tlayer[%d] = NN_main_inputBufferDefinition(NN_main_shape(1,%d,%d), model);\n' % (id, inshape[0], inshape[1]))
                 else:
-                    fp.write('\tlayer[%d] = Input(shape%s, nn_input_data);\n' % (id, inshape))
+                    fp.write('\tlayer[%d] = NN_main_inputBufferDefinition(NN_main_shape%s, model);\n' % (id, inshape))
 
             # convlutional
             elif('conv1d' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
                 cfg = layer.get_config()
                 if('depthwise' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(DW_Conv2D({1}, kernel(1,{2}), stride(1,{3}), PADDING_{4}, &{5}_w, &{5}_b), layer[{6}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_DW_Conv2D({1}, NN_main_kernel(1,{2}), NN_main_stride(1,{3}), NN_TYPES_PADDING_{4}, &{5}_w, &{5}_b), layer[{6}]);\n'.format(
                         id, 1, cfg['kernel_size'][0], cfg['strides'][0], cfg['padding'].upper(),
                         layer.name, LI[inp][0]))
                 else:
-                    fp.write('\tlayer[{0}] = model.hook(Conv2D({1}, kernel(1,{2}), stride(1,{3}), PADDING_{4}, &{5}_w, &{5}_b), layer[{6}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_conv2D({1}, NN_main_kernel(1,{2}), NN_main_stride(1,{3}), NN_TYPES_PADDING_{4}, &{5}_w, &{5}_b), layer[{6}]);\n'.format(
                         id, cfg['filters'], cfg['kernel_size'][0], cfg['strides'][0], cfg['padding'].upper(),
                         layer.name, LI[inp][0]))
             elif('conv2d' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
                 cfg = layer.get_config()
                 if ('depthwise' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(DW_Conv2D({1}, kernel{2}, stride{3}, PADDING_{4}, &{5}_w, &{5}_b), layer[{6}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_dWConv2D({1}, NN_main_kernel{2}, NN_main_stride{3}, NN_TYPES_PADDING_{4}, &{5}_w, &{5}_b), layer[{6}]);\n'.format(
                         id, 1, cfg['kernel_size'], cfg['strides'], cfg['padding'].upper(),
                         layer.name, LI[inp][0]))
                 else:
-                    fp.write('\tlayer[{0}] = model.hook(Conv2D({1}, kernel{2}, stride{3}, PADDING_{4}, &{5}_w, &{5}_b), layer[{6}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_conv2D({1}, NN_main_kernel{2}, NN_main_stride{3}, NN_TYPES_PADDING_{4}, &{5}_w, &{5}_b), layer[{6}]);\n'.format(
                         id, cfg['filters'], cfg['kernel_size'], cfg['strides'], cfg['padding'].upper(),
                         layer.name, LI[inp][0]))
             # activations
@@ -490,27 +493,27 @@ def generate_model(model, x_test, name='weights.h'):
                 inp = layer.input.name.replace(':','/').split('/')[0]
                 cfg = layer.get_config()
                 if(cfg['activation'] == 'relu'):
-                    fp.write('\tlayer[%s] = model.active(act_relu(), layer[%s]);\n'%(id, LI[inp][0]))
+                    fp.write('\tlayer[%s] = model->active(NN_main_activationsActRelu(), layer[%s]);\n'%(id, LI[inp][0]))
                 if(cfg['activation'] == 'tanh'):
-                    fp.write('\tlayer[%s] = model.active(act_tanh(%s_OUTPUT_SHIFT), layer[%s]);\n'%(id, inp.upper(), LI[inp][0]))
+                    fp.write('\tlayer[%s] = model->active(act_tanh(%s_OUTPUT_SHIFT), layer[%s]);\n'%(id, inp.upper(), LI[inp][0]))
                 if(cfg['activation'] == 'sigmoid'):
-                    fp.write('\tlayer[%s] = model.active(act_sigmoid(%s_OUTPUT_SHIFT), layer[%s]);\n'%(id, inp.upper(), LI[inp][0]))
+                    fp.write('\tlayer[%s] = model->active(act_sigmoid(%s_OUTPUT_SHIFT), layer[%s]);\n'%(id, inp.upper(), LI[inp][0]))
                 elif(cfg['activation'] == 'softmax'):
-                    fp.write('\tlayer[%s] = model.hook(Softmax(), layer[%s]);\n'%(id, LI[inp][0]))
+                    fp.write('\tlayer[%s] = model->hook(Softmax(), layer[%s]);\n'%(id, LI[inp][0]))
             elif('re_lu' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
-                fp.write('\tlayer[%s] = model.active(act_relu(), layer[%s]);\n'%(id, LI[inp][0]))
+                fp.write('\tlayer[%s] = model->active(NN_main_activationsActRelu(), layer[%s]);\n'%(id, LI[inp][0]))
             # pooling
             elif('max_pooling' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
                 cfg = layer.get_config()
                 if ('global' in layer.name):
-                    fp.write('\tlayer[%s] = model.hook(GlobalMaxPool(),  layer[%s]);\n' % (id, LI[inp][0]))
+                    fp.write('\tlayer[%s] = model->hook(NN_main_globalMaxPool(),  layer[%s]);\n' % (id, LI[inp][0]))
                 elif('2d' in layer.name):
-                    fp.write('\tlayer[%s] = model.hook(MaxPool(kernel%s, stride%s, PADDING_%s), layer[%d]);\n'%(
+                    fp.write('\tlayer[%s] = model->hook(NN_main_maxPool(NN_main_kernel%s, NN_main_stride%s, NN_TYPES_PADDING_%s), layer[%d]);\n'%(
                         id, cfg['pool_size'], cfg['strides'], cfg['padding'].upper(), LI[inp][0]))
                 elif('1d' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(MaxPool(kernel(1,{1}), stride(1,{2}), PADDING_{3}), layer[{4}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_maxPool(NN_main_kernel(1,{1}), NN_main_stride(1,{2}), NN_TYPES_PADDING_{3}), layer[{4}]);\n'.format(
                         id, cfg['pool_size'][0], cfg['strides'][0], cfg['padding'].upper(), LI[inp][0]))
             elif('average_pooling' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
@@ -519,42 +522,42 @@ def generate_model(model, x_test, name='weights.h'):
                     # a global avg pool before softmax can be replace by sumpool in MCU (recommend)
                     if(layer == model.layers[-2] and 'Softmax' in model.layers[-1].output.name):
                         print(layer.name, 'has been replaced by GlobalSumPool()')
-                        fp.write('\tlayer[%s] = model.hook(GlobalSumPool(),  layer[%s]);\n' % (id, LI[inp][0]))
+                        fp.write('\tlayer[%s] = model->hook(NN_main_globalSumPool(),  layer[%s]);\n' % (id, LI[inp][0]))
                     else:
-                        fp.write('\tlayer[%s] = model.hook(GlobalAvgPool(),  layer[%s]);\n' % (id, LI[inp][0]))
+                        fp.write('\tlayer[%s] = model->hook(NN_main_gobalAvgPool(),  layer[%s]);\n' % (id, LI[inp][0]))
                 elif('2d' in layer.name):
-                    fp.write('\tlayer[%s] = model.hook(AvgPool(kernel%s, stride%s, PADDING_%s), layer[%d]);\n'%(
+                    fp.write('\tlayer[%s] = model->hook(NN_main_avgPool(NN_main_kernel%s, NN_main_stride%s, NN_TYPES_PADDING_%s), layer[%d]);\n'%(
                         id, cfg['pool_size'], cfg['strides'], cfg['padding'].upper(), LI[inp][0]))
                 elif('1d' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(AvgPool(kernel(1,{1}), stride(1,{2}), PADDING_{3}), layer[{4}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_avgPool(NN_main_kernel(1,{1}), NN_main_stride(1,{2}), NN_TYPES_PADDING_{3}), layer[{4}]);\n'.format(
                         id, cfg['pool_size'][0], cfg['strides'][0], cfg['padding'].upper(), LI[inp][0]))
             elif ('up_sampling' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
                 cfg = layer.get_config()
                 if('2d' in layer.name):
-                    fp.write('\tlayer[%s] = model.hook(UpSample(kernel%s), layer[%d]);\n'%(id, cfg['size'],  LI[inp][0]))
+                    fp.write('\tlayer[%s] = model->hook(NN_main_upSample(NN_main_kernel%s), layer[%d]);\n'%(id, cfg['size'],  LI[inp][0]))
                 elif('1d' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(UpSample(kernel(1,{1})), layer[{2}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_upSample(NN_main_kernel(1,{1})), layer[{2}]);\n'.format(
                         id,  cfg['size'][0], LI[inp][0]))
             # zero padding
             elif ('zero_padding' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
                 cfg = layer.get_config()
                 if('2d' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(ZeroPadding(border({1},{2},{3},{4})), layer[{5}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_zeroPadding(NN_main_border({1},{2},{3},{4})), layer[{5}]);\n'.format(
                         id,  cfg['padding'][0][0], cfg['padding'][0][1], cfg['padding'][1][0],cfg['padding'][1][1], LI[inp][0]))
                 elif('1d' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(ZeroPadding(border(0,0,{1},{2})), layer[{3}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_zeroPadding(NN_main_border(0,0,{1},{2})), layer[{3}]);\n'.format(
                         id,  cfg['padding'][0], cfg['padding'][1], LI[inp][0]))
             # Cropping
             elif ('cropping' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
                 cfg = layer.get_config()
                 if('2d' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(Cropping(border({1},{2},{3},{4})), layer[{5}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_cropping(NN_main_border({1},{2},{3},{4})), layer[{5}]);\n'.format(
                         id,  cfg['cropping'][0][0], cfg['cropping'][0][1], cfg['cropping'][1][0],cfg['cropping'][1][1], LI[inp][0]))
                 elif('1d' in layer.name):
-                    fp.write('\tlayer[{0}] = model.hook(Cropping(border(0,0,{1},{2})), layer[{3}]);\n'.format(
+                    fp.write('\tlayer[{0}] = model->hook(NN_main_cropping(NN_main_border(0,0,{1},{2})), layer[{3}]);\n'.format(
                         id,  cfg['cropping'][0], cfg['cropping'][1], LI[inp][0]))
 
             # others
@@ -564,21 +567,21 @@ def generate_model(model, x_test, name='weights.h'):
                 for inp in inps:
                     inX += ' ,layer[%d]'%(LI[inp][0])
                 cfg = layer.get_config()
-                fp.write('\tlayer[%s] = model.mergex(Concat(%s), %s%s);\n'%(
+                fp.write('\tlayer[%s] = model->mergex(NN_main_concat(%s), %s%s);\n'%(
                     id, cfg['axis'], len(inps), inX))
             elif('add' in layer.name):
                 inps = [input.name.replace(':','/').split('/')[0] for input in layer.input]
                 inX = ''
                 for inp in inps:
                     inX += ' ,layer[%d]'%(LI[inp][0])
-                fp.write('\tlayer[%s] = model.mergex(Add(%s_OUTPUT_RSHIFT), %s%s);\n'%(
+                fp.write('\tlayer[%s] = model->mergex(NN_main_add(%s_OUTPUT_RSHIFT), %s%s);\n'%(
                     id, layer.name.upper(), len(inps), inX))
             elif('subtract' in layer.name):
                 inps = [input.name.replace(':','/').split('/')[0] for input in layer.input]
                 inX = ''
                 for inp in inps:
                     inX += ' ,layer[%d]'%(LI[inp][0])
-                fp.write('\tlayer[%s] = model.mergex(Sub(%s_OUTPUT_RSHIFT), %s%s);\n'%(
+                fp.write('\tlayer[%s] = model->mergex(NN_main_sub(%s_OUTPUT_RSHIFT), %s%s);\n'%(
                     id, layer.name.upper(), len(inps), inX))
             elif('multiply' in layer.name):
                 warnings.warn("Warning mutiply is under testing")
@@ -586,28 +589,28 @@ def generate_model(model, x_test, name='weights.h'):
                 inX = ''
                 for inp in inps:
                     inX += ' ,layer[%d]'%(LI[inp][0])
-                fp.write('\tlayer[%s] = model.mergex(Mult(%s_OUTPUT_RSHIFT), %s%s);\n'%(
+                fp.write('\tlayer[%s] = model->mergex(NN_main_mult(%s_OUTPUT_RSHIFT), %s%s);\n'%(
                     id, layer.name.upper(), len(inps), inX))
             elif('dense' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
                 cfg = layer.get_config()
-                fp.write('\tlayer[{0}] = model.hook(Dense({1}, &{2}_w, &{2}_b), layer[{3}]);\n'.format(
+                fp.write('\tlayer[{0}] = model->hook(NN_main_dense({1}, &{2}_w, &{2}_b), layer[{3}]);\n'.format(
                     id, cfg['units'], layer.name, LI[inp][0]))
             elif('softmax' in layer.name):
                 inp = layer.input.name.replace(':','/').split('/')[0]
-                fp.write('\tlayer[%s] = model.hook(Softmax(), layer[%s]);\n'%(id, LI[inp][0]))
+                fp.write('\tlayer[%s] = model->hook(NN_main_softmax(), layer[%s]);\n'%(id, LI[inp][0]))
             else:
                 raise Exception('unsupported layer', layer.name, layer)
         # the last layer is the output layer
         if('softmax' in layer.name
            or ('activation' in layer.name and layer.get_config()['activation'] == 'softmax')):
-            fp.write('\tlayer[%s] = model.hook(Output(shape(%s,1,1), nn_output_data), layer[%s]);\n'%(id+1, layer.input.shape[1], id))
+            fp.write('\tlayer[%s] = model->hook(NN_main_output(NN_main_shape(%s,1,1), NN_output_data), layer[%s]);\n'%(id+1, layer.input.shape[1], id))
         else:
-            fp.write('\tlayer[%s] = model.hook(Output(shape%s, nn_output_data), layer[%s]);\n'%(id+1, layer.shape[1:], id))
-        fp.write('\tmodel_compile(&model, layer[0], layer[%s]);\n'%(id+1))
+            fp.write('\tlayer[%s] = model->hook(NN_main_output(NN_main_shape%s, NN_output_data), layer[%s]);\n'%(id+1, layer.shape[1:], id))
+        fp.write('\treturn NN_main_modelCompile(model, layer[0], layer[%s]);\n'%(id+1))
         if(ID>32):
             fp.write('\tfree(layer);\n')
-        fp.write('\treturn &model;\n}\n')
+        fp.write('\t\n}\n')
     with open('.shift_list','w') as fp:
         fp.write(str(shift_list))
 
