@@ -17,3 +17,4 @@ dtaidistance==1.2.3
 ipywidgets
 jupyter_contrib_nbextensions
 neptune-notebooks
+--upgrade jupyterlab-git
